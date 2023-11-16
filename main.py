@@ -1,106 +1,48 @@
-import torch 
-from torchvision import transforms , models 
-from PIL import Image 
-import matplotlib.pyplot as plt
-import numpy as np
+for i in range(1, epochs + 1):
 
-model = models.vgg19(pretrained=True).features
-for p in model.parameters():
-    p.requires_grad = False
-model.to("cpu")
+    def closure():
+        # Zero out the gradients
+        optimizer.zero_grad()
 
-def model_activations(input,model):
-    layers = {
-    '0' : 'conv1_1',
-    '5' : 'conv2_1',
-    '10': 'conv3_1',
-    '19': 'conv4_1',
-    '21': 'conv4_2',
-    '28': 'conv5_1'
-    }
-    features = {}
-    x = input
-    x = x.unsqueeze(0)
-    for name,layer in model._modules.items():
-        x = layer(x)
-        if name in layers:
-            features[layers[name]] = x 
-    
-    return features
+        # Compute target features
+        target_features = model_activations(target, model)
 
-transform = transforms.Compose([transforms.Resize(300),
-                              transforms.ToTensor(),
-                              transforms.Normalize((0.5,0.5,0.5),(0.5,0.5,0.5))])
+        # Compute content loss
+        content_loss = torch.mean((content_features['conv4_2'] - target_features['conv4_2'])**2)
 
-content = Image.open("content.jpg").convert("RGB")
-content = transform(content).to('cpu')
-print("COntent shape => ", content.shape)
-style = Image.open("style.jpg").convert("RGB")
-style = transform(style).to("cpu")
+        # Dynamically adjust layer weights based on current target features
+        style_wt_meas = adjust_layer_weights(style_features, content_features)
 
-def imcnvt(image):
-    x = image.to("cpu").clone().detach().numpy().squeeze()
-    x = x.transpose(1,2,0)
-    x = x*np.array((0.5,0.5,0.5)) + np.array((0.5,0.5,0.5))
-    return np.clip(x,0,1)
+        # Compute style loss
+        style_loss = 0
+        for layer in style_wt_meas:
+            style_gram = style_grams[layer]
+            target_gram = target_features[layer]
+            _, d, w, h = target_gram.shape
+            target_gram = gram_matrix(target_gram)
 
-fig, (ax1,ax2) = plt.subplots(1,2)
+            style_loss += (style_wt_meas[layer] * torch.mean((target_gram - style_gram)**2)) / (d * w * h)
 
-ax1.imshow(imcnvt(content),label = "Content")
-ax2.imshow(imcnvt(style),label = "Style")
-plt.show()
+        # Compute total variation loss
+        tv_loss = total_variation_loss(target)
 
-def gram_matrix(imgfeature):
-    _,d,h,w = imgfeature.size()
-    imgfeature = imgfeature.view(d,h*w)
-    gram_mat = torch.mm(imgfeature,imgfeature.t())
-    
-    return gram_mat
+        # Combine losses
+        total_loss = content_wt * content_loss + style_wt * style_loss + tv_loss_weight * tv_loss
 
-target = content.clone().requires_grad_(True).to("cpu")
+        # Perform backward pass
+        total_loss.backward()
 
-style_features = model_activations(style,model)
-content_features = model_activations(content,model)
+        # Logging
+        if i % 10 == 0:
+            print("epoch ", i, " ", total_loss.item())
 
-style_wt_meas = {"conv1_1" : 1.0, 
-                 "conv2_1" : 0.8,
-                 "conv3_1" : 0.4,
-                 "conv4_1" : 0.2,
-                 "conv5_1" : 0.1}
+        return total_loss
 
-style_grams = {layer:gram_matrix(style_features[layer]) for layer in style_features}
+    # Step through the optimizer
+    optimizer.step(closure)
 
-content_wt = 100
-style_wt = 1e8
-
-#total of 4800 epochs, with results every 60
-print_after = 600
-epochs = 4800
-optimizer = torch.optim.Adam([target],lr=0.007)
-
-for i in range(1,epochs+1):
-    target_features = model_activations(target,model)
-    content_loss = torch.mean((content_features['conv4_2']-target_features['conv4_2'])**2)
-
-    style_loss = 0
-    for layer in style_wt_meas:
-        style_gram = style_grams[layer]
-        target_gram = target_features[layer]
-        _,d,w,h = target_gram.shape
-        target_gram = gram_matrix(target_gram)
-
-        style_loss += (style_wt_meas[layer]*torch.mean((target_gram-style_gram)**2))/d*w*h
-    
-    total_loss = content_wt*content_loss + style_wt*style_loss 
-    
-    if i%10==0:       
-        print("epoch ",i," ", total_loss)
-    
-    optimizer.zero_grad()
-    total_loss.backward()
-    optimizer.step()
-    
-    if i%print_after == 0:
-        plt.imshow(imcnvt(target),label="Epoch "+str(i))
+    # Checkpoint and display the image at intervals
+    if i % print_after == 0:
+        plt.imshow(imcnvt(target), label="Epoch " + str(i))
         plt.show()
-        plt.imsave(str(i)+'.jpg',imcnvt(target),format='jpg')
+        plt.imsave(str(i) + '.jpg', imcnvt(target), format='jpg')
