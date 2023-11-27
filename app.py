@@ -38,25 +38,21 @@ def upload_image():
         else:
             return 'No selected file'
 
-@app.route('/progress', methods=['GET'])
-def progress():
-    try:
-        with open("path/to/progress.txt", "r") as progress_file:
-            progress = progress_file.read()
-            return progress
-    except FileNotFoundError:
-        return "0"  # Return 0 if the progress file doesn't exist
-
 @app.route('/latest-image')
 def latest_image():
-    files = os.listdir(OUTPUT_FOLDER)
-    files.sort(key=lambda x: os.path.getmtime(os.path.join(OUTPUT_FOLDER, x)), reverse=True)
-    if files:
-        newest_file = files[0]
-        return send_file(os.path.join(OUTPUT_FOLDER, newest_file), mimetype='image/jpeg')
-    else:
-        return 'No image found', 404
-
+    try:
+        files = os.listdir(OUTPUT_FOLDER)
+        files.sort(key=lambda x: os.path.getmtime(os.path.join(OUTPUT_FOLDER, x)), reverse=True)
+        if files:
+            print(files)
+            newest_file = files[0]
+            with open(os.path.join(OUTPUT_FOLDER, newest_file), 'rb') as image_file:
+                return send_file(image_file, mimetype='image/jpeg')
+        else:
+            return 'No images found', 404
+    except FileNotFoundError:
+        return 'No images found', 404
+    
 if __name__ == "__main__":
     print("Starting Flask app...")
     app.run(debug=True)

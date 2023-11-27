@@ -13,65 +13,53 @@
         <input type="file" name="content_image" id="content_image" required><br><br>
         <input type="submit" value="Upload">
     </form>
-    <h3>Style Image:</h3>
     <div id="resultContainer" style="display:none;">
         <h3>Result:</h3>
         <img id="resultImage" src="" alt="Style transfer result will appear here">
     </div>
 
-    <!-- Progress Bar Container -->
-    <div id="progressBarContainer" style="display:none;">
-        <label for="file">Processing:</label>
-        <progress id="progressBar" value="0" max="100"></progress>
-    </div>
-
     <script>
     $(document).ready(function(){
+        
         $('form').submit(function(event){
             // Prevent the default form submission
             event.preventDefault();
 
-            // Show progress bar when form is submittedx
-            $('#progressBarContainer').show();
+            var formData = new FormData(this);
+            $.ajax({
+                url: '/uploader',
+                type: 'POST',
+                data: formData,
+                success: function(data){
+                    console.log('Upload complete!');
+                },
+                error: function(xhr, status, error){
+                    console.error("Error in upload: " + error + " Status: " + status + " xhr: " + xhr);
+                },
+                cache: false,
+                contentType: false,
+                processData: false
+            });
 
-            // Function to update progress
-            function updateProgress(){
+            function sendRequestToLatestImage() {
                 $.ajax({
-                    url: '/progress',
+                    url: '/latest-image',
                     type: 'GET',
-                    success: function(progress){
-                        $('#progressBar').val(progress);
-                        if(progress < 100){
-                            setTimeout(updateProgress, 20000);  // Update every 20 seconds
-                        }
-                    }
-                });
-            }
-
-            // Start the AJAX request to upload the images
-            function updateImage(form){
-                var formData = new FormData(form);
-                $.ajax({
-                    url: '/uploader',
-                    type: 'POST',
-                    data: formData,
                     success: function(data){
-                        $('#resultContainer').show();
-                        $('#resultImage').attr('src', '/latest_image');
-                        console.log('Upload complete!');
+                        console.log('Received image from /latest-image: ', data)
+                        // Update the result image src with the received image URL
+                        $('#resultImage').attr('src', data);
+                        $('#resultContainer').show(); // Show the result container
+                        console.log('Received and displayed image from /latest-image');
                     },
                     error: function(xhr, status, error){
-                        console.error("Error in upload: " + error + " Status: " + status + " xhr: " + xhr);
+                        console.error("Error in request to /latest-image: " + error + " Status: " + status + " xhr: " + xhr);
                     },
-                    cache: false,
-                    contentType: false,
-                    processData: false
                 });
             }
 
-            // Start updating progress
-            setTimeout(updateProgress, 1000);
-
+            // Set an interval to send the request every 20 seconds (20000 milliseconds)
+            setInterval(sendRequestToLatestImage, 10000); 
         });
     });
     </script>
