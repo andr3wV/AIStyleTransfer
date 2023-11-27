@@ -2,3 +2,7 @@ torch
 torchvision
 matplotlib
 numpy
+
+flask
+Pillow
+flask_cors

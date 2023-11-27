@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Upload Images for Style Transfer</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+</head>
+<body>
+    <h2>Image Style Transfer</h2>
+    <form action="/uploader" method="post" enctype="multipart/form-data">
+        <label for="style_image">Style Image:</label>
+        <input type="file" name="style_image" id="style_image" required><br><br>
+        <label for="content_image">Content Image:</label>
+        <input type="file" name="content_image" id="content_image" required><br><br>
+        <input type="submit" value="Upload">
+    </form>
+    <h3>Style Image:</h3>
+    <div id="resultContainer" style="display:none;">
+        <h3>Result:</h3>
+        <img id="resultImage" src="" alt="Style transfer result will appear here">
+    </div>
+
+    <!-- Progress Bar Container -->
+    <div id="progressBarContainer" style="display:none;">
+        <label for="file">Processing:</label>
+        <progress id="progressBar" value="0" max="100"></progress>
+    </div>
+
+    <script>
+    $(document).ready(function(){
+        $('form').submit(function(event){
+            // Prevent the default form submission
+            event.preventDefault();
+
+            // Show progress bar when form is submittedx
+            $('#progressBarContainer').show();
+
+            // Function to update progress
+            function updateProgress(){
+                $.ajax({
+                    url: '/progress',
+                    type: 'GET',
+                    success: function(progress){
+                        $('#progressBar').val(progress);
+                        if(progress < 100){
+                            setTimeout(updateProgress, 20000);  // Update every 20 seconds
+                        }
+                    }
+                });
+            }
+
+            // Start the AJAX request to upload the images
+            function updateImage(form){
+                var formData = new FormData(form);
+                $.ajax({
+                    url: '/uploader',
+                    type: 'POST',
+                    data: formData,
+                    success: function(data){
+                        $('#resultContainer').show();
+                        $('#resultImage').attr('src', '/latest_image');
+                        console.log('Upload complete!');
+                    },
+                    error: function(xhr, status, error){
+                        console.error("Error in upload: " + error + " Status: " + status + " xhr: " + xhr);
+                    },
+                    cache: false,
+                    contentType: false,
+                    processData: false
+                });
+            }
+
+            // Start updating progress
+            setTimeout(updateProgress, 1000);
+
+        });
+    });
+    </script>
+</body>
+</html>
