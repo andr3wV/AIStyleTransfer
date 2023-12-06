@@ -2,6 +2,7 @@ from flask import Flask, request, render_template, send_file
 from flask_cors import CORS
 import os
 from web import perform_style_transfer
+import base64
 
 app = Flask(__name__)
 CORS(app)
@@ -44,10 +45,11 @@ def latest_image():
         files = os.listdir(OUTPUT_FOLDER)
         files.sort(key=lambda x: os.path.getmtime(os.path.join(OUTPUT_FOLDER, x)), reverse=True)
         if files:
-            print(files)
             newest_file = files[0]
-            with open(os.path.join(OUTPUT_FOLDER, newest_file), 'rb') as image_file:
-                return send_file(image_file, mimetype='image/jpeg')
+            image_file_path = os.path.join(OUTPUT_FOLDER, newest_file)
+            with open(image_file_path, 'rb') as image_file:
+                encoded_string = base64.b64encode(image_file.read())
+                return f"data:image/jpeg;base64,{encoded_string.decode('utf-8')}"
         else:
             return 'No images found', 404
     except FileNotFoundError:

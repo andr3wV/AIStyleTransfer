@@ -3,6 +3,7 @@
 <head>
     <title>Upload Images for Style Transfer</title>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
     <h2>Image Style Transfer</h2>
@@ -16,14 +17,19 @@
     <div id="resultContainer" style="display:none;">
         <h3>Result:</h3>
         <img id="resultImage" src="" alt="Style transfer result will appear here">
+        <p id="count">Style Image: 0</p>
+        <div id="loader" style="display:none;"class="lds-dual-ring"></div>
     </div>
 
     <script>
     $(document).ready(function(){
         
+        //Every time the form is submitted, start style transfer and send the request to /latest-image in an interval
         $('form').submit(function(event){
             // Prevent the default form submission
             event.preventDefault();
+
+            var imageBatch = 0;
 
             var formData = new FormData(this);
             $.ajax({
@@ -46,10 +52,13 @@
                     url: '/latest-image',
                     type: 'GET',
                     success: function(data){
+                        imageBatch += 1;
                         console.log('Received image from /latest-image: ', data)
                         // Update the result image src with the received image URL
                         $('#resultImage').attr('src', data);
                         $('#resultContainer').show(); // Show the result container
+                        $('#loader').show(); // Show the result container
+                        $('#count').text('Image Batch: ' + imageBatch); 
                         console.log('Received and displayed image from /latest-image');
                     },
                     error: function(xhr, status, error){
